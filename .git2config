@@ -1,0 +1,13 @@
+# git2 config file
+# Created: 2026-02-25T11:17:09+01:00
+
+# remotes (name=url)
+REMOTE['origin']='https://@github.com/GrapheneOS/script.git'
+
+# Current ref info
+REF_TYPE='tag'
+REF_NAME='2025110800'
+REF_REMOTE=''
+
+# HEAD commit
+COMMIT='2b1e08dd71fc34023b9999c24988027aa98ba7f6'
