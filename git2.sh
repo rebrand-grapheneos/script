@@ -3,7 +3,7 @@
 # git2.sh - Large git repository change management tool
 #
 # Commands:
-#   git2 init   - Create .git2 folder, copy git2.sh, apply set (in original repo)
+#   git2 init   - Create .git2 folder, move git2.sh, apply set (in original repo)
 #   git2 start  - Move cloned content to .git2, apply get (after cloning my repo)
 #   git2 set    - Save current git config to .git2/.git2config
 #   git2 get    - Restore git config from .git2/.git2config to current folder
@@ -12,6 +12,19 @@
 #
 
 set -e
+
+# Auto-detect project root
+# Case 1: running from inside .git2 (cwd is .git2)
+# Case 2: running from project root (cwd has .git2/)
+# Case 3: script is in .git2/ but cwd is elsewhere
+if [[ "$(basename "$(pwd)")" == ".git2" ]]; then
+    cd ..
+elif [[ ! -d ".git2" ]]; then
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    if [[ "$(basename "$SCRIPT_DIR")" == ".git2" ]]; then
+        cd "$(dirname "$SCRIPT_DIR")"
+    fi
+fi
 
 GIT2_DIR=".git2"
 GIT2_CONFIG="$GIT2_DIR/.git2config"
@@ -34,7 +47,7 @@ show_help() {
 git2 - Large git repository change management tool
 
 Usage:
-  git2 init    Create .git2 folder, copy git2.sh, apply set (in original repo)
+  git2 init    Create .git2 folder, move git2.sh, apply set (in original repo)
   git2 start   Move cloned content to .git2, apply get (after cloning my repo)
   git2 set     Save current git config to .git2/.git2config
   git2 get     Restore git config from .git2/.git2config to current folder
@@ -42,10 +55,13 @@ Usage:
   git2 pull    Sync .git2 -> current folder (add/modify)
   git2 help    Show this help message
 
+Note: git2 can be run from either the project folder or the .git2 folder.
+      If run from .git2, it automatically switches to the parent folder.
+
 Workflow (initial setup in original repo):
   1. git clone <original-repo>
   2. cp /path/to/git2.sh .
-  3. git2 init               # Create .git2, save config
+  3. git2 init               # Create .git2, move git2.sh, save config
   4. Make code changes
   5. git2 push               # Sync only changed files to .git2/
   6. cd .git2 && git init && git remote add origin <my-repo>
@@ -224,7 +240,7 @@ cmd_get() {
     log_success "Git config applied"
 }
 
-# init: Create .git2 folder, copy git2.sh, apply set (in original repo)
+# init: Create .git2 folder, move git2.sh, apply set (in original repo)
 cmd_init() {
     if [[ -d "$GIT2_DIR" ]]; then
         log_warn ".git2 folder already exists."
@@ -239,10 +255,10 @@ cmd_init() {
     log_info "Creating .git2 folder..."
     mkdir -p "$GIT2_DIR"
 
-    # Copy git2.sh
+    # Move git2.sh into .git2
     if [[ -f "git2.sh" ]]; then
-        cp "git2.sh" "$GIT2_DIR/git2.sh"
-        log_info "git2.sh copied"
+        mv "git2.sh" "$GIT2_DIR/git2.sh"
+        log_info "git2.sh moved to .git2/"
     fi
 
     # Apply set (save current git config)
@@ -293,17 +309,13 @@ cmd_start() {
         log_info ".git moved to .git2/"
     fi
 
-    # Move all other content to .git2 (copy git2.sh)
+    # Move all other content to .git2
     for item in * .[!.]* ..?*; do
         [[ ! -e "$item" ]] && continue
         [[ "$item" == ".git2" ]] && continue
         [[ "$item" == ".git" ]] && continue
 
-        if [[ "$item" == "git2.sh" ]]; then
-            cp "git2.sh" "$GIT2_DIR/git2.sh"
-        else
-            mv "$item" "$GIT2_DIR/"
-        fi
+        mv "$item" "$GIT2_DIR/"
     done
 
     log_info "Content moved"
@@ -347,6 +359,7 @@ cmd_push() {
 
         [[ "$file" == "git2.sh" ]] && continue
         [[ "$file" == ".git2"* ]] && continue
+        [[ "$file" == ".find-ignore" ]] && continue
 
         case "$status" in
             " M"|"M "|"MM"|"AM"|" A"|"A "|"??")
